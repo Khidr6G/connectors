@@ -13,22 +13,22 @@ This connector allows you to automatically import threat intelligence from the C
 
 The connector uses a `config.yml` file for configuration. Below is an example:
 
-| Parameter                  | Docker env var             | Mandatory | Description                                                                                              |
-|----------------------------|----------------------------|-----------|----------------------------------------------------------------------------------------------------------|
-| `opencti_url`              | `OPENCTI_URL`              | Yes       | The URL of the OpenCTI platform.                                                                         |
-| `opencti_token`            | `OPENCTI_TOKEN`            | Yes       | The user token configured in the OpenCTI platform.                                                       |
-| `connector_id`             | `CONNECTOR_ID`             | Yes       | A valid arbitrary `UUIDv4` that must be unique for this connector.                                       |
-| `connector_type`           | `CONNECTOR_TYPE`           | No        | `EXTERNAL_IMPORT`                                                                                        |
-| `connector_name`           | `CONNECTOR_NAME`           | No        | Name of the connector, e.g., `CybelAngel`.                                                               |
-| `connector_scope`          | `CONNECTOR_SCOPE`          | No        | Supported scope: `all`.                                                                                  |
-| `connector_log_level`      | `CONNECTOR_LOG_LEVEL`      | No        | Log output for the connector. Defaults to `error`.                                                       |
-| `cybelangel_client_id`     | `CYBELANGEL_CLIENT_ID`     | Yes       | The client ID provided by CybelAngel.                                                                    |
-| `cybelangel_client_secret` | `CYBELANGEL_CLIENT_SECRET` | Yes       | The client secret provided by CybelAngel.                                                                |
-| `cybelangel_api_url`       | `CYBELANGEL_API_URL`       | No        | Defaults to `https://api.cybelangel.com/v1`.                                                             |
-| `cybelangel_auth_url`      | `CYBELANGEL_AUTH_URL`      | No        | Defaults to `https://auth.cybelangel.com/oauth/token`.                                                   |
-| `cybelangel_interval`      | `CYBELANGEL_INTERVAL`      | No        | Run interval, in hours. Defaults to `1`.                                                                 |
-| `cybelangel_fetch_period`  | `CYBELANGEL_FETCH_PERIOD`  | No        | Number of days to look back for claimed attacks. Defaults to `7`. Use `all` to retrieve all the elements |
-| `cybelangel_marking`       | `CYBELANGEL_MARKING`       | No        | TLP marking to apply to created entities. Defaults to `TLP:AMBER+STRICT`.                                |
+| Parameter                   | Docker env var              | Mandatory | Description                                                                                              |
+|-----------------------------|-----------------------------|-----------|----------------------------------------------------------------------------------------------------------|
+| `opencti_url`               | `OPENCTI_URL`               | Yes       | The URL of the OpenCTI platform.                                                                         |
+| `opencti_token`             | `OPENCTI_TOKEN`             | Yes       | The user token configured in the OpenCTI platform.                                                       |
+| `connector_id`              | `CONNECTOR_ID`              | Yes       | A valid arbitrary `UUIDv4` that must be unique for this connector.                                       |
+| `connector_type`            | `CONNECTOR_TYPE`            | No        | `EXTERNAL_IMPORT`                                                                                        |
+| `connector_name`            | `CONNECTOR_NAME`            | No        | Name of the connector, e.g., `CybelAngel`.                                                               |
+| `connector_scope`           | `CONNECTOR_SCOPE`           | No        | Supported scope: `all`.                                                                                  |
+| `connector_log_level`       | `CONNECTOR_LOG_LEVEL`       | No        | Log output for the connector. Defaults to `error`.                                                       |
+| `cybelangel_client_id`      | `CYBELANGEL_CLIENT_ID`      | Yes       | The client ID provided by CybelAngel.                                                                    |
+| `cybelangel_client_secret`  | `CYBELANGEL_CLIENT_SECRET`  | Yes       | The client secret provided by CybelAngel.                                                                |
+| `cybelangel_api_url`        | `CYBELANGEL_API_URL`        | No        | Defaults to `https://api.cybelangel.com/v1`.                                                             |
+| `cybelangel_auth_url`       | `CYBELANGEL_AUTH_URL`       | No        | Defaults to `https://auth.cybelangel.com/oauth/token`.                                                   |
+| `cybelangel_fetch_period`   | `CYBELANGEL_FETCH_PERIOD`   | No        | Number of days to look back for claimed attacks. Defaults to `7`. Use `all` to retrieve all the elements |
+| `cybelangel_marking`        | `CYBELANGEL_MARKING`        | No        | TLP marking to apply to created entities. Defaults to `TLP:AMBER+STRICT`.                                |
+| `connector_duration_period` | `CONNECTOR_DURATION_PERIOD` | No        | Duration period using ISO 8601 format. Default is PT6H (6 hours).                                        |
 
 ## Behavior
 

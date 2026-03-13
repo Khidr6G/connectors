@@ -79,20 +79,13 @@ class CybelAngel:
                 "CYBELANGEL_API_URL",
                 ["cybelangel", "api_url"],
                 config,
-                default="https://api.cybelangel.com",
+                default="https://platform.cybelangel.com",
             )
             self.cybelangel_auth_url = get_config_variable(
                 "CYBELANGEL_AUTH_URL",
                 ["cybelangel", "auth_url"],
                 config,
                 default="https://auth.cybelangel.com/oauth/token",
-            )
-            self.cybelangel_interval = get_config_variable(
-                "CYBELANGEL_INTERVAL",
-                ["cybelangel", "interval"],
-                config,
-                isNumber=True,
-                default=1,
             )
             self.cybelangel_marking = get_config_variable(
                 "CYBELANGEL_MARKING",
@@ -106,6 +99,15 @@ class CybelAngel:
                 config,
                 default="7",
             )
+
+            # Scheduler / auto-backpressure (ISO 8601). Default = PT6H, i.e., 6 hours.
+            self.duration_period = get_config_variable(
+                "CONNECTOR_DURATION_PERIOD",
+                ["connector", "duration_period"],
+                config,
+                default="PT6H",
+            )
+
         except Exception as e:
             self.helper.connector_logger.error(
                 f"Error loading configuration: {e}. Please check your config.yml file."
@@ -122,62 +124,30 @@ class CybelAngel:
         Returns:
             None
         """
-        try:
-            tlp_value = self.cybelangel_marking.upper()
-            self.helper.connector_logger.debug(f"Configured TLP marking: {tlp_value}")
-
-            if tlp_value == "TLP:CLEAR":
-                marking = stix2.MarkingDefinition(
-                    id=MarkingDefinition.generate_id("TLP", "TLP:CLEAR"),
-                    definition_type="statement",
-                    definition={"statement": "TLP:CLEAR"},
-                    allow_custom=True,
-                    x_opencti_definition_type="TLP",
-                    x_opencti_definition="TLP:CLEAR",
-                )
-            elif tlp_value in ["TLP:GREEN", "TLP:AMBER", "TLP:RED"]:
-                marking = stix2.MarkingDefinition(
-                    definition_type="tlp",
-                    definition={"tlp": tlp_value.split(":")[1].lower()},
-                    x_opencti_definition_type="TLP",
-                    x_opencti_definition=tlp_value,
-                )
-            elif tlp_value == "TLP:AMBER+STRICT":
-                marking = stix2.MarkingDefinition(
-                    id=MarkingDefinition.generate_id("TLP", "TLP:AMBER+STRICT"),
-                    definition_type="statement",
-                    definition={"statement": "TLP:AMBER+STRICT"},
-                    allow_custom=True,
-                    x_opencti_definition_type="TLP",
-                    x_opencti_definition="TLP:AMBER+STRICT",
-                )
-            else:
-                self.helper.connector_logger.warning(
-                    f"Unsupported TLP marking '{tlp_value}', defaulting to TLP:AMBER+STRICT"
-                )
-                marking = stix2.MarkingDefinition(
-                    id=MarkingDefinition.generate_id("TLP", "TLP:AMBER+STRICT"),
-                    definition_type="tlp",
-                    definition={"statement": "TLP:AMBER+STRICT"},
-                    allow_custom=True,
-                    x_opencti_definition_type="TLP",
-                    x_opencti_definition="TLP:AMBER+STRICT",
-                )
-
-            self.cybelangel_marking = marking
-        except Exception as e:
-            self.helper.connector_logger.error(
-                f"Error loading marking definition: {e}. Please check your configuration. Using default "
-                f"TLP:AMBER+STRICT. "
-            )
-            self.cybelangel_marking = stix2.MarkingDefinition(
+        TLP_MAPPING = {
+            "TLP:WHITE": stix2.TLP_WHITE,
+            "TLP:CLEAR": stix2.TLP_WHITE,
+            "TLP:GREEN": stix2.TLP_GREEN,
+            "TLP:AMBER": stix2.TLP_AMBER,
+            "TLP:AMBER+STRICT": stix2.MarkingDefinition(
                 id=MarkingDefinition.generate_id("TLP", "TLP:AMBER+STRICT"),
                 definition_type="statement",
                 definition={"statement": "TLP:AMBER+STRICT"},
                 allow_custom=True,
                 x_opencti_definition_type="TLP",
                 x_opencti_definition="TLP:AMBER+STRICT",
+            ),
+            "TLP:RED": stix2.TLP_RED,
+        }
+
+        tlp_value = self.cybelangel_marking.strip().upper()
+        if tlp_value in TLP_MAPPING:
+            self.cybelangel_marking = TLP_MAPPING[tlp_value]
+        else:
+            self.helper.connector_logger.warning(
+                f"Unsupported TLP marking '{tlp_value}', defaulting to TLP:AMBER+STRICT"
             )
+            self.cybelangel_marking = TLP_MAPPING["TLP:AMBER+STRICT"]
 
     def authenticate(self, max_retries=3, delay=5):
         """
@@ -192,8 +162,8 @@ class CybelAngel:
 
         Raises:
             Exception: If the authentication request fails or the response is invalid.
-            :param delay:
-            :param max_retries:
+            :param delay: Delay in seconds between retry attempts.
+            :param max_retries: Maximum number of retry attempts.
         """
 
         auth_data = {
@@ -295,7 +265,7 @@ class CybelAngel:
         rel_type,
         source_id,
         target_id,
-        published_at,
+        claimed_at,
         marking=None,
         created_by=None,
     ):
@@ -303,7 +273,7 @@ class CybelAngel:
             id=StixCoreRelationship.generate_id(rel_type, source_id, target_id),
             source_ref=source_id,
             target_ref=target_id,
-            created=published_at,
+            created=claimed_at,
             relationship_type=rel_type,
             object_marking_refs=marking,
             created_by_ref=created_by,
@@ -334,44 +304,62 @@ class CybelAngel:
         )
 
     def _build_fetch_parameters(self, last_run):
+        """
+        Compute since_date/end_date and build the CybelAngel API parameters.
+        Returns (since_date, end_date, parameters) or (None, None, "sort_by=-claimed_at") if full history.
+        """
+
+        base_sort = "sort_by=claimed_at&sort_order=desc"
+
         if last_run:
             try:
-                since_date = datetime.fromisoformat(last_run)
+                since_date = datetime.fromisoformat(last_run).astimezone(timezone.utc)
             except ValueError:
                 fetch_period = getattr(self, "cybelangel_fetch_period", "7")
-                since_date = datetime.now(timezone.utc) - timedelta(days=fetch_period)
+                since_date = datetime.now(timezone.utc) - timedelta(
+                    days=int(fetch_period)
+                )
                 since_date = since_date.replace(
                     hour=0, minute=0, second=0, microsecond=0
                 )
                 self.helper.connector_logger.warning(
                     f"Invalid last_run format. Using last {fetch_period} days."
                 )
-        else:
-            fetch_period = getattr(self, "cybelangel_fetch_period", "all")
-            if fetch_period == "all":
-                return None, None, "sort_by=-published_at"
-            days = int(fetch_period)
-            since_date = datetime.now(timezone.utc) - timedelta(days=days)
-            since_date = since_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = datetime.now(timezone.utc)
+            parameters = (
+                f"{base_sort}"
+                f"&start_date={since_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+                f"&end_date={end_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            )
+            return since_date, end_date, parameters
 
+        # No last_run -> we use CYBELANGEL_FETCH_PERIOD
+        fetch_period = getattr(self, "cybelangel_fetch_period", "all")
+        if fetch_period == "all":
+            # No date filter
+            return None, None, base_sort
+
+        days = int(fetch_period)
+        since_date = datetime.now(timezone.utc) - timedelta(days=days)
+        since_date = since_date.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = datetime.now(timezone.utc)
         parameters = (
-            f"sort_by=-published_at"
-            f"&published_at_range={since_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-            f"~{end_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            f"{base_sort}"
+            f"&start_date={since_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            f"&end_date={end_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
         )
         return since_date, end_date, parameters
 
     def _fetch_and_process_pages(
         self, headers, parameters, author_org, work_id, since_date
     ):
-        page_offset = 0
-        page_limit = 50
+        skip = 0
+        limit = 50
         has_more = True
         attempt = 0
 
         while has_more:
-            url = f"{self.cybelangel_api_url}/api/v1/claimed-attacks?page_offset={page_offset}&page_limit={page_limit}&{parameters}"
+            url = f"{self.cybelangel_api_url}/api/v1/threat-intelligence/claimed-attacks?limit={limit}&skip={skip}&{parameters}"
             self.helper.connector_logger.debug(
                 f"Fetching data from CybelAngel API: {url}"
             )
@@ -418,32 +406,33 @@ class CybelAngel:
                 break
 
             self.helper.connector_logger.info(
-                f"Processing {len(attacks)} attacks - offset {page_offset} with limit {page_limit}"
+                f"Processing {len(attacks)} attacks - skip {skip} with limit {limit}"
             )
 
             for attack in attacks:
                 self._process_attack(attack, since_date, author_org, work_id)
 
-            page_offset += page_limit
+            skip += limit
 
     # ----------------------
     # Parse & Ingest Data
     # ----------------------
     def _process_attack(self, attack, since_date, author_org, work_id):
-        published_at = attack.get("published_at")
-        if published_at:
+        claimed_at = attack.get("claimed_at")
+        if claimed_at:
             try:
-                published_at = datetime.strptime(
-                    published_at, "%Y-%m-%dT%H:%M:%S.%fZ"
+                claimed_at = datetime.strptime(
+                    claimed_at, "%Y-%m-%dT%H:%M:%S.%fZ"
                 ).replace(tzinfo=timezone.utc)
             except ValueError:
-                published_at = datetime.strptime(
-                    published_at, "%Y-%m-%dT%H:%M:%SZ"
+                claimed_at = datetime.strptime(
+                    claimed_at, "%Y-%m-%dT%H:%M:%SZ"
                 ).replace(tzinfo=timezone.utc)
 
-        if since_date and published_at < since_date:
+        # Stop early if attack is before last_run
+        if since_date and claimed_at and claimed_at < since_date:
             self.helper.connector_logger.info(
-                f"Stopping processing as published_at {published_at.strftime('%Y-%m-%dT%H:%M:%SZ')} is before "
+                f"Stopping processing as claimed_at {claimed_at.strftime('%Y-%m-%dT%H:%M:%SZ')} is before "
                 f"last_run value {since_date.strftime('%Y-%m-%dT%H:%M:%SZ')}"
             )
             return
@@ -452,58 +441,35 @@ class CybelAngel:
         author_org_id = author_org["id"] if author_org else None
         marking_id = [self.cybelangel_marking.id] if self.cybelangel_marking else None
 
+        # Attack fields
         campaign_objective = attack.get("category", "Unknown")
-        if "DDOS" in campaign_objective.lower():
-            resource_level = "Contest"
-        else:
-            resource_level = "Organization"
+        threat_actors = attack.get("threat_actors", []) or []
+        countries = attack.get("countries", []) or []
+        industries_list = attack.get("industries", []) or []
+        victims = attack.get("victims", []) or []
+        domains = attack.get("domains", []) or []
 
-        threat_actors = attack.get("threat_actors", [])
-        victim_countries = attack.get("victim_countries", [])
-        victim_industries = attack.get("victim_industries", [])
-        victim_organizations = attack.get("victim_organizations", [])
-        victim_sites = attack.get("victim_sites", [])
+        # Resource level heuristic
+        resource_level = (
+            "Contest" if "ddos" in campaign_objective.lower() else "Organization"
+        )
 
-        # Handle Campaign modelization
+        # Actor label used in campaign naming
         final_actor = (
-            threat_actors[0] if threat_actors and threat_actors[0] else "Unknown actor"
+            threat_actors[0]
+            if (threat_actors and threat_actors[0])
+            else "Unknown actor"
         )
+        campaign_date = ""
+        if claimed_at:
+            claimed_date = datetime.strptime(
+                claimed_at.strftime("%Y-%m-%d"), "%Y-%m-%d"
+            ).date()
+            campaign_date = f" ({claimed_date})"
 
-        if published_at:
-            published_date = datetime.strptime(published_at[:10], "%Y-%m-%d").date()
-            campaign_date = f" ({published_date})"
-        else:
-            campaign_date = ""
-        if victim_organizations:
-            if len(victim_organizations) > 1:
-                campaign_name = f"{final_actor} targets multiple organizations - {campaign_date}".rstrip(" - ")
-                campaign_description = (
-                    f"{campaign_objective.capitalize()} campaign by {final_actor} targeting multiple "
-                    f"organizations: {', '.join(victim_organizations)} "
-                )
-            else:
-                campaign_name = f"{final_actor} targets {victim_organizations[0]} - {campaign_date}".rstrip(" - ")
-                campaign_description = f"{campaign_objective.capitalize()} campaign by {final_actor} targeting {victim_organizations[0]}"
-        else:
-            campaign_name = f"{campaign_objective.capitalize()} campaign by {final_actor} - {campaign_date}".rstrip(" - ")
-            campaign_description = f"{campaign_objective.capitalize()} campaign by {final_actor} with no specific target"
-
-        campaign = stix2.Campaign(
-            id=Campaign.generate_id(campaign_name),
-            name=campaign_name,
-            description=campaign_description,
-            created=published_at,
-            first_seen=published_at,
-            last_seen=published_at,
-            objective=campaign_objective,
-            object_marking_refs=marking_id,
-            created_by_ref=author_org_id,
-        )
-        stix_objects.append(campaign)
-
-        # Handle Location modelization
+        # --- Locations (countries) shared across campaigns for this attack
         locations = []
-        for country in victim_countries:
+        for country in countries:
             if not country:
                 continue
             location = stix2.Location(
@@ -517,110 +483,18 @@ class CybelAngel:
             locations.append(location)
             stix_objects.append(location)
 
-            # Create relationships
-            relationship_campaign_location = self._create_relationship(
-                "targets",
-                campaign.id,
-                location.id,
-                published_at,
-                marking_id,
-                author_org_id,
-            )
-            stix_objects.append(relationship_campaign_location)
+        # --- Sectors (industries) shared across campaigns for this attack
+        sector_objs = []
+        for ind in industries_list:
+            if not ind:
+                continue
+            sector = self._create_identity(ind, "class", marking_id, author_org_id)
+            if sector:
+                sector_objs.append(sector)
+                stix_objects.append(sector)
 
-        # Handle Organization modelization
-        # Logic:
-        # - If len(victim_organizations) and len(victim_sites) are equal put victim_sites as contact_information
-        # - If len(victim_organizations) and len(victim_sites) are NOT equal put ignore victim_sites
-        # - If victim_organizations is empty, use victim_sites as name (no contact_information)
-
-        identities = []
-        if victim_sites:
-            if victim_organizations:
-                if len(victim_sites) == len(victim_organizations):
-                    for org, site in zip(victim_organizations, victim_sites):
-                        if len(org) < 2:
-                            self.helper.connector_logger.info(
-                                f"Victim organization name {org} is too short, adding whitespace."
-                            )
-                            org = org + " "
-
-                        identity = self._create_identity(
-                            org, "Organization", marking_id, author_org_id, site
-                        )
-                        identities.append(identity)
-                        stix_objects.append(identity)
-
-                elif len(victim_sites) != len(victim_organizations):
-                    for org in victim_organizations:
-                        if len(org) < 2:
-                            self.helper.connector_logger.info(
-                                f"Victim organization name {org} is too short, adding whitespace."
-                            )
-                            org = org + " "
-
-                        identity = self._create_identity(
-                            org, "Organization", marking_id, author_org_id
-                        )
-                        identities.append(identity)
-                        stix_objects.append(identity)
-
-            else:
-                for site in victim_sites:
-                    if len(site) < 2:
-                        self.helper.connector_logger.info(
-                            f"Victim site name {site} is too short, adding whitespace."
-                        )
-                        site = site + " "
-
-                    identity = self._create_identity(
-                        site, "Organization", marking_id, author_org_id
-                    )
-                    identities.append(identity)
-                    stix_objects.append(identity)
-
-            # Create relationships
-            for identity in identities:
-                relationship_campaign_identity = self._create_relationship(
-                    "targets",
-                    campaign.id,
-                    identity.id,
-                    published_at,
-                    marking_id,
-                    author_org_id,
-                )
-                stix_objects.append(relationship_campaign_identity)
-
-                for location in locations:
-                    relationship_identity_location = self._create_relationship(
-                        "located-at",
-                        identity.id,
-                        location.id,
-                        published_at,
-                        marking_id,
-                        author_org_id,
-                    )
-                    stix_objects.append(relationship_identity_location)
-
-        # Handle Sector modelization
-        industries = []
-        for industry in victim_industries:
-            sector = self._create_identity(industry, "class", marking_id, author_org_id)
-            industries.append(sector)
-            stix_objects.append(sector)
-
-            # Create relationships
-            relationship_campaign_industry = self._create_relationship(
-                "targets",
-                campaign.id,
-                sector.id,
-                published_at,
-                marking_id,
-                author_org_id,
-            )
-            stix_objects.append(relationship_campaign_industry)
-
-        # Handle Intrusion Sets modelization
+        # --- Intrusion Sets shared across campaigns for this attack
+        intrusion_sets = []
         for actor in threat_actors:
             if not actor:
                 continue
@@ -629,61 +503,218 @@ class CybelAngel:
                     f"Intrusion set name {actor} is too short, adding whitespace."
                 )
                 actor = actor + " "
-
             intrusion_set = stix2.IntrusionSet(
                 id=IntrusionSet.generate_id(actor),
                 name=actor,
                 description=f"Threat actor {actor} from CybelAngel",
                 resource_level=resource_level,
-                last_seen=published_at,
+                last_seen=claimed_at,
                 object_marking_refs=marking_id,
                 created_by_ref=author_org_id,
             )
+            intrusion_sets.append(intrusion_set)
             stix_objects.append(intrusion_set)
 
-            # Create relationships
-            relationship_campaign_intrusion = self._create_relationship(
-                "attributed-to",
-                campaign.id,
-                intrusion_set.id,
-                published_at,
-                marking_id,
-                author_org_id,
+        # --- Build victim-domain pairing
+        victim_domain_pairs = []
+        if victims and domains and len(domains) == len(victims):
+            victim_domain_pairs = list(zip(victims, domains))
+        elif victims:
+            victim_domain_pairs = [(v, None) for v in victims]
+
+        # --- If no victims at all: keep a generic campaign (backward compatible)
+        if not victim_domain_pairs and not victims:
+            campaign_name = f"{campaign_objective.capitalize()} campaign by {final_actor} - {campaign_date}".rstrip(
+                " - "
             )
-            stix_objects.append(relationship_campaign_intrusion)
+            campaign_description = f"{campaign_objective.capitalize()} campaign by {final_actor} with no specific target"
+            campaign = stix2.Campaign(
+                id=Campaign.generate_id(campaign_name),
+                name=campaign_name,
+                description=campaign_description,
+                created=claimed_at,
+                first_seen=claimed_at,
+                last_seen=claimed_at,
+                objective=campaign_objective,
+                object_marking_refs=marking_id,
+                created_by_ref=author_org_id,
+            )
+            stix_objects.append(campaign)
 
-            for identity in identities:
-                relationship_intrusion_identity = self._create_relationship(
-                    "targets",
-                    intrusion_set.id,
-                    identity.id,
-                    published_at,
-                    marking_id,
-                    author_org_id,
-                )
-                stix_objects.append(relationship_intrusion_identity)
-
+            # campaign -> locations
             for location in locations:
-                relationship_intrusion_location = self._create_relationship(
-                    "targets",
-                    intrusion_set.id,
-                    location.id,
-                    published_at,
-                    marking_id,
-                    author_org_id,
+                stix_objects.append(
+                    self._create_relationship(
+                        "targets",
+                        campaign.id,
+                        location.id,
+                        claimed_at,
+                        marking_id,
+                        author_org_id,
+                    )
                 )
-                stix_objects.append(relationship_intrusion_location)
+            # campaign -> sectors
+            for sector in sector_objs:
+                stix_objects.append(
+                    self._create_relationship(
+                        "targets",
+                        campaign.id,
+                        sector.id,
+                        claimed_at,
+                        marking_id,
+                        author_org_id,
+                    )
+                )
+            # campaign -> intrusion sets
+            for iset in intrusion_sets:
+                stix_objects.append(
+                    self._create_relationship(
+                        "attributed-to",
+                        campaign.id,
+                        iset.id,
+                        claimed_at,
+                        marking_id,
+                        author_org_id,
+                    )
+                )
+            # intrusion sets -> locations / sectors
+            for iset in intrusion_sets:
+                for location in locations:
+                    stix_objects.append(
+                        self._create_relationship(
+                            "targets",
+                            iset.id,
+                            location.id,
+                            claimed_at,
+                            marking_id,
+                            author_org_id,
+                        )
+                    )
+                for sector in sector_objs:
+                    stix_objects.append(
+                        self._create_relationship(
+                            "targets",
+                            iset.id,
+                            sector.id,
+                            claimed_at,
+                            marking_id,
+                            author_org_id,
+                        )
+                    )
 
-            for industry in industries:
-                relationship_intrusion_industry = self._create_relationship(
-                    "targets",
-                    intrusion_set.id,
-                    industry.id,
-                    published_at,
-                    marking_id,
-                    author_org_id,
+        # --- One campaign per victim
+        for victim_name, victim_domain in victim_domain_pairs:
+            if not victim_name:
+                continue
+            v = victim_name if len(victim_name) >= 2 else (victim_name + " ")
+
+            # Create victim identity
+            identity = self._create_identity(
+                v, "Organization", marking_id, author_org_id, victim_domain
+            )
+            if identity:
+                stix_objects.append(identity)
+
+            # Create a dedicated campaign for this victim
+            campaign_name = f"{final_actor} targets {v}"
+            campaign_description = f"{campaign_objective.capitalize()} campaign by {final_actor} targeting {v}"
+            campaign = stix2.Campaign(
+                id=Campaign.generate_id(campaign_name),
+                name=campaign_name,
+                description=campaign_description,
+                created=claimed_at,
+                first_seen=claimed_at,
+                last_seen=claimed_at,
+                objective=campaign_objective,
+                object_marking_refs=marking_id,
+                created_by_ref=author_org_id,
+            )
+            stix_objects.append(campaign)
+
+            # campaign -> victim
+            if identity:
+                stix_objects.append(
+                    self._create_relationship(
+                        "targets",
+                        campaign.id,
+                        identity.id,
+                        claimed_at,
+                        marking_id,
+                        author_org_id,
+                    )
                 )
-                stix_objects.append(relationship_intrusion_industry)
+            # campaign -> locations
+            for location in locations:
+                stix_objects.append(
+                    self._create_relationship(
+                        "targets",
+                        campaign.id,
+                        location.id,
+                        claimed_at,
+                        marking_id,
+                        author_org_id,
+                    )
+                )
+            # campaign -> sectors
+            for sector in sector_objs:
+                stix_objects.append(
+                    self._create_relationship(
+                        "targets",
+                        campaign.id,
+                        sector.id,
+                        claimed_at,
+                        marking_id,
+                        author_org_id,
+                    )
+                )
+            # campaign -> intrusion sets
+            for iset in intrusion_sets:
+                stix_objects.append(
+                    self._create_relationship(
+                        "attributed-to",
+                        campaign.id,
+                        iset.id,
+                        claimed_at,
+                        marking_id,
+                        author_org_id,
+                    )
+                )
+
+            # intrusion sets -> victim / locations / sectors
+            for iset in intrusion_sets:
+                if identity:
+                    stix_objects.append(
+                        self._create_relationship(
+                            "targets",
+                            iset.id,
+                            identity.id,
+                            claimed_at,
+                            marking_id,
+                            author_org_id,
+                        )
+                    )
+                for location in locations:
+                    stix_objects.append(
+                        self._create_relationship(
+                            "targets",
+                            iset.id,
+                            location.id,
+                            claimed_at,
+                            marking_id,
+                            author_org_id,
+                        )
+                    )
+                for sector in sector_objs:
+                    stix_objects.append(
+                        self._create_relationship(
+                            "targets",
+                            iset.id,
+                            sector.id,
+                            claimed_at,
+                            marking_id,
+                            author_org_id,
+                        )
+                    )
 
         # Send bundle to OpenCTI
         if stix_objects:
@@ -741,23 +772,18 @@ class CybelAngel:
 
     def run(self):
         """
-        Main execution loop for the connector. Determines whether to run once or continuously
-        based on the configuration, and triggers the data processing accordingly.
+        Run using OpenCTI Scheduler (ISO 8601 duration + auto-backpressure).
 
         """
         try:
-
             self.helper.connector_logger.info("Fetching CybelAngel data ...")
             self.load_marking_definition()
-            get_run_and_terminate = getattr(self.helper, "get_run_and_terminate", None)
-            if callable(get_run_and_terminate) and self.helper.get_run_and_terminate():
-                self.process_data()
-                self.helper.force_ping()
-            else:
-                while True:
-                    self.process_data()
-                    time.sleep(int(self.cybelangel_interval) * 60 * 60)
-            pass
+
+            self.helper.schedule_iso(
+                message_callback=self.process_data,
+                duration_period=self.duration_period,
+            )
+
         except Exception as e:
             self.helper.connector_logger.error(f"Error in CybelAngel connector: {e}")
             raise

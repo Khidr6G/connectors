@@ -15,6 +15,6 @@ cybelangel:
   client_secret: "ChangeMe" # Required
   api_url: 'https://platform.cybelangel.com'
   auth_url: 'https://auth.cybelangel.com/oauth/token'
-  interval: 1 # In hours
   marking: 'TLP:AMBER+STRICT'
   fetch_period: 7 # In days
+  duration_period: "PT6H" # every 6 hours
