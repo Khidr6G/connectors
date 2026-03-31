@@ -3,11 +3,9 @@
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from conftest import mock_env_vars
 from stix2 import TLP_AMBER, Identity, IntrusionSet, MarkingDefinition
 
 from crowdstrike_feeds_connector.actor.builder import ActorBundleBuilder
