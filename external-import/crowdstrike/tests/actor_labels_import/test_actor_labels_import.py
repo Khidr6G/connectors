@@ -6,10 +6,9 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from stix2 import TLP_AMBER, Identity, IntrusionSet, MarkingDefinition
-
 from crowdstrike_feeds_connector.actor.builder import ActorBundleBuilder
 from crowdstrike_feeds_connector.related_actors.builder import RelatedActorBundleBuilder
+from stix2 import TLP_AMBER, Identity, IntrusionSet, MarkingDefinition
 
 # =====================
 # Fixtures

@@ -4,19 +4,18 @@ import logging
 from collections.abc import Mapping
 from typing import Any, cast
 
+from crowdstrike_feeds_services.utils import (
+    create_external_reference,
+    create_intrusion_set,
+    normalize_start_time_and_stop_time,
+    timestamp_to_datetime,
+)
 from stix2 import (
     AttackPattern,
     ExternalReference,
     Identity,
     IntrusionSet,
     MarkingDefinition,
-)
-
-from crowdstrike_feeds_services.utils import (
-    create_external_reference,
-    create_intrusion_set,
-    normalize_start_time_and_stop_time,
-    timestamp_to_datetime,
 )
 
 logger = logging.getLogger(__name__)
