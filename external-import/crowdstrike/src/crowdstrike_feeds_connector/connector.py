@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import stix2
 import yaml
+
 from crowdstrike_feeds_services.client.base_api import BaseCrowdstrikeClient
 from crowdstrike_feeds_services.utils import (
     create_organization,
@@ -30,8 +31,9 @@ from .rule.yara_master_importer import YaraMasterImporter
 from .vulnerability.importer import VulnerabilityImporter
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector.settings import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector.settings import ConnectorSettings
 
 
 class CrowdStrike:

@@ -16,6 +16,10 @@ from typing import (
     cast,
 )
 
+from requests import RequestException
+from stix2 import Bundle, Identity, MarkingDefinition
+from stix2.exceptions import STIXError
+
 from crowdstrike_feeds_services.client.rules import RulesAPI
 from crowdstrike_feeds_services.utils import (
     datetime_to_timestamp,
@@ -23,16 +27,14 @@ from crowdstrike_feeds_services.utils import (
 )
 from crowdstrike_feeds_services.utils.report_fetcher import FetchedReport, ReportFetcher
 from crowdstrike_feeds_services.utils.snort_parser import SnortParser, SnortRule
-from requests import RequestException
-from stix2 import Bundle, Identity, MarkingDefinition
-from stix2.exceptions import STIXError
 
 from ..importer import BaseImporter
 from .snort_suricata_master_builder import SnortRuleBundleBuilder
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 
 class SnortMaster(NamedTuple):

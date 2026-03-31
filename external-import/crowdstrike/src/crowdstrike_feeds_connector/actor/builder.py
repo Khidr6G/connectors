@@ -4,6 +4,19 @@ import logging
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from stix2 import Identity  # type: ignore
+from stix2 import (
+    AttackPattern,
+    Bundle,
+    ExternalReference,
+    IntrusionSet,
+    Location,
+    Malware,
+    MarkingDefinition,
+    Relationship,
+)
+from stix2.v21 import _DomainObject
+
 from crowdstrike_feeds_services.utils import (
     create_authored_by_relationships,
     create_external_reference,
@@ -17,18 +30,6 @@ from crowdstrike_feeds_services.utils import (
     remove_html_tags,
     timestamp_to_datetime,
 )
-from stix2 import Identity  # type: ignore
-from stix2 import (
-    AttackPattern,
-    Bundle,
-    ExternalReference,
-    IntrusionSet,
-    Location,
-    Malware,
-    MarkingDefinition,
-    Relationship,
-)
-from stix2.v21 import _DomainObject
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ class ActorBundleBuilder:
         aliases = self._get_aliases()
         primary_motivation, secondary_motivations = self._get_motivations()
         external_references = self._create_external_references()
+        labels = self._get_labels()
 
         return create_intrusion_set(
             self.actor["name"],
@@ -117,10 +119,34 @@ class ActorBundleBuilder:
             last_seen=self.last_seen,
             primary_motivation=primary_motivation,
             secondary_motivations=secondary_motivations,
+            labels=labels,
             confidence=self.confidence_level,
             external_references=external_references,
             object_markings=self.object_markings,
         )
+
+    def _get_labels(self) -> list[str] | None:
+        labels: list[str] = []
+
+        actor_motivations = self.actor.get("motivations")
+        if isinstance(actor_motivations, list):
+            for motivation in actor_motivations:
+                if isinstance(motivation, Mapping):
+                    value = str(
+                        motivation.get("value") or motivation.get("slug") or ""
+                    ).strip()
+                else:
+                    value = str(motivation).strip()
+                if value:
+                    labels.append(value)
+
+        actor_type = self.actor.get("actor_type")
+        if actor_type:
+            actor_type_str = str(actor_type).strip()
+            if actor_type_str:
+                labels.append(actor_type_str)
+
+        return labels or None
 
     def _get_description(self) -> str | None:
         actor = self.actor

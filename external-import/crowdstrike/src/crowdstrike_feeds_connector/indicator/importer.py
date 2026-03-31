@@ -3,6 +3,8 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, NamedTuple, Optional, Set
 
+from stix2 import Bundle, Identity, MarkingDefinition
+
 from crowdstrike_feeds_connector.related_actors.importer import RelatedActorImporter
 from crowdstrike_feeds_services.client.indicators import IndicatorsAPI
 from crowdstrike_feeds_services.utils import (
@@ -12,14 +14,14 @@ from crowdstrike_feeds_services.utils import (
 from crowdstrike_feeds_services.utils.attack_lookup import AttackTechniqueLookup
 from crowdstrike_feeds_services.utils.labels import parse_crowdstrike_labels
 from crowdstrike_feeds_services.utils.report_fetcher import FetchedReport, ReportFetcher
-from stix2 import Bundle, Identity, MarkingDefinition
 
 from ..importer import BaseImporter
 from .builder import IndicatorBundleBuilder, IndicatorBundleBuilderConfig
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 
 class IndicatorImporterConfig(NamedTuple):

@@ -2,8 +2,9 @@
 
 import traceback
 
-from crowdstrike_feeds_connector import ConnectorSettings, CrowdStrike
 from pycti import OpenCTIConnectorHelper
+
+from crowdstrike_feeds_connector import ConnectorSettings, CrowdStrike
 
 if __name__ == "__main__":
     """

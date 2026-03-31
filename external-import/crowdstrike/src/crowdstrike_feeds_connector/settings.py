@@ -8,7 +8,6 @@ from connectors_sdk import (
     DeprecatedField,
     ListFromString,
 )
-from crowdstrike_feeds_services.utils import is_timestamp_in_future
 from pydantic import (
     Field,
     HttpUrl,
@@ -17,6 +16,8 @@ from pydantic import (
     SkipValidation,
     field_validator,
 )
+
+from crowdstrike_feeds_services.utils import is_timestamp_in_future
 
 
 def _get_default_timestamp_30_days_ago() -> int:

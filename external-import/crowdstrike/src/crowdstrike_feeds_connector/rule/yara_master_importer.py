@@ -6,6 +6,10 @@ from datetime import datetime
 from io import BytesIO
 from typing import TYPE_CHECKING, Any, Dict, Mapping, NamedTuple, Optional, Tuple, cast
 
+from requests import RequestException
+from stix2 import Bundle, Identity, MarkingDefinition
+from stix2.exceptions import STIXError
+
 from crowdstrike_feeds_services.client.actors import ActorsAPI
 from crowdstrike_feeds_services.client.rules import RulesAPI
 from crowdstrike_feeds_services.utils import (
@@ -14,16 +18,14 @@ from crowdstrike_feeds_services.utils import (
 )
 from crowdstrike_feeds_services.utils.report_fetcher import FetchedReport, ReportFetcher
 from crowdstrike_feeds_services.utils.yara_parser import YaraParser, YaraRule
-from requests import RequestException
-from stix2 import Bundle, Identity, MarkingDefinition
-from stix2.exceptions import STIXError
 
 from ..importer import BaseImporter
 from .yara_master_builder import YaraRuleBundleBuilder
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 
 class YaraMaster(NamedTuple):

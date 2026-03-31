@@ -4,18 +4,19 @@ import logging
 from collections.abc import Mapping
 from typing import Any, cast
 
-from crowdstrike_feeds_services.utils import (
-    create_external_reference,
-    create_intrusion_set,
-    normalize_start_time_and_stop_time,
-    timestamp_to_datetime,
-)
 from stix2 import (
     AttackPattern,
     ExternalReference,
     Identity,
     IntrusionSet,
     MarkingDefinition,
+)
+
+from crowdstrike_feeds_services.utils import (
+    create_external_reference,
+    create_intrusion_set,
+    normalize_start_time_and_stop_time,
+    timestamp_to_datetime,
 )
 
 logger = logging.getLogger(__name__)
@@ -253,6 +254,21 @@ class RelatedActorBundleBuilder:
                 )
             )
 
+        # Labels: raw CrowdStrike motivation values and actor_type
+        labels: list[str] = []
+        for mot in motivations_raw:
+            if isinstance(mot, Mapping):
+                val = str(mot.get("value") or mot.get("slug") or "").strip()
+            else:
+                val = str(mot).strip()
+            if val:
+                labels.append(val)
+        actor_type = actor.get("actor_type")
+        if actor_type:
+            actor_type_str = str(actor_type).strip()
+            if actor_type_str:
+                labels.append(actor_type_str)
+
         return create_intrusion_set(
             name,
             created_by=created_by,
@@ -263,6 +279,7 @@ class RelatedActorBundleBuilder:
             goals=goals or None,
             primary_motivation=primary_motivation,
             secondary_motivations=secondary_motivations or None,
+            labels=labels or None,
             confidence=confidence,
             external_references=external_references or None,
             object_markings=object_markings,

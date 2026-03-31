@@ -4,6 +4,9 @@ from collections.abc import Mapping as ABCMapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Generator, List, Mapping, Optional, cast
 
+from stix2 import Bundle, Identity, MarkingDefinition
+from stix2.v21 import _DomainObject
+
 from crowdstrike_feeds_connector.related_actors.importer import RelatedActorImporter
 from crowdstrike_feeds_services.client.indicators import IndicatorsAPI
 from crowdstrike_feeds_services.client.reports import ReportsAPI
@@ -13,8 +16,6 @@ from crowdstrike_feeds_services.utils import (
     paginate,
     timestamp_to_datetime,
 )
-from stix2 import Bundle, Identity, MarkingDefinition
-from stix2.v21 import _DomainObject
 
 from ..importer import BaseImporter
 from ..indicator.builder import IndicatorBundleBuilder
@@ -24,8 +25,9 @@ from ..indicator.importer import (
 from .builder import ReportBundleBuilder
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 
 class ReportImporter(BaseImporter):

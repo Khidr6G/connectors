@@ -4,18 +4,6 @@ from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING, Any, cast
 
-from crowdstrike_feeds_connector.related_actors.importer import RelatedActorImporter
-from crowdstrike_feeds_services.utils import (
-    create_indicates_relationships,
-    create_indicator,
-    create_intrusion_sets_from_names,
-    create_malware,
-    create_object_refs,
-    create_stix2_report_from_report,
-    create_uses_relationships,
-)
-from crowdstrike_feeds_services.utils.report_fetcher import FetchedReport
-from crowdstrike_feeds_services.utils.yara_parser import YaraRule
 from stix2 import (
     Bundle,
     Identity,
@@ -28,9 +16,23 @@ from stix2 import (
 from stix2 import Report as STIXReport
 from stix2.v21 import _DomainObject, _RelationshipObject
 
+from crowdstrike_feeds_connector.related_actors.importer import RelatedActorImporter
+from crowdstrike_feeds_services.utils import (
+    create_indicates_relationships,
+    create_indicator,
+    create_intrusion_sets_from_names,
+    create_malware,
+    create_object_refs,
+    create_stix2_report_from_report,
+    create_uses_relationships,
+)
+from crowdstrike_feeds_services.utils.report_fetcher import FetchedReport
+from crowdstrike_feeds_services.utils.yara_parser import YaraRule
+
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 
 class YaraRuleBundleBuilder:

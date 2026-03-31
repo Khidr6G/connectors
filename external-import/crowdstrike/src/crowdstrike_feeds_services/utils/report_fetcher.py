@@ -3,14 +3,16 @@
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Union
 
-from crowdstrike_feeds_services.client.reports import ReportsAPI
 from pydantic.v1 import BaseModel
+
+from crowdstrike_feeds_services.client.reports import ReportsAPI
 
 from . import create_file_from_download
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 logger = logging.getLogger(__name__)
 

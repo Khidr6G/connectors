@@ -3,6 +3,8 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Generator, List, Optional
 
+from stix2 import Bundle, Identity, MarkingDefinition
+
 from crowdstrike_feeds_connector.related_actors.importer import (
     RelatedActorImporter,
 )
@@ -14,14 +16,14 @@ from crowdstrike_feeds_services.utils import (
     paginate,
     timestamp_to_datetime,
 )
-from stix2 import Bundle, Identity, MarkingDefinition
 
 from ..importer import BaseImporter
 from .builder import ActorBundleBuilder
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 
 class ActorImporter(BaseImporter):

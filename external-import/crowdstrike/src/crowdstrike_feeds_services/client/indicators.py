@@ -4,8 +4,9 @@ from urllib.parse import parse_qs, urlparse
 from .base_api import BaseCrowdstrikeClient
 
 if TYPE_CHECKING:
-    from crowdstrike_feeds_connector import ConnectorSettings
     from pycti import OpenCTIConnectorHelper
+
+    from crowdstrike_feeds_connector import ConnectorSettings
 
 
 class IndicatorsAPI(BaseCrowdstrikeClient):
