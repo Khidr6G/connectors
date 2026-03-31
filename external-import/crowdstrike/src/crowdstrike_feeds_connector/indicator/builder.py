@@ -3,24 +3,6 @@
 from collections.abc import Mapping
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set, cast
 
-from pycti import OpenCTIConnectorHelper
-from stix2 import Bundle
-from stix2.v21 import (
-    AttackPattern,
-    Identity,
-)
-from stix2.v21 import Indicator as STIXIndicator
-from stix2.v21 import (
-    KillChainPhase,
-    Malware,
-    MarkingDefinition,
-    Relationship,
-    Vulnerability,
-    _DomainObject,
-    _Observable,
-    _RelationshipObject,
-)
-
 from crowdstrike_feeds_connector.related_actors.builder import RelatedActorBundleBuilder
 from crowdstrike_feeds_services.utils import (
     OBSERVATION_FACTORY_CRYPTOCURRENCY_WALLET,
@@ -55,6 +37,23 @@ from crowdstrike_feeds_services.utils.constants import (
     CS_KILL_CHAIN_TO_LOCKHEED_MARTIN_CYBER_KILL_CHAIN,
 )
 from crowdstrike_feeds_services.utils.labels import extract_label_names
+from pycti import OpenCTIConnectorHelper
+from stix2 import Bundle
+from stix2.v21 import (
+    AttackPattern,
+    Identity,
+)
+from stix2.v21 import Indicator as STIXIndicator
+from stix2.v21 import (
+    KillChainPhase,
+    Malware,
+    MarkingDefinition,
+    Relationship,
+    Vulnerability,
+    _DomainObject,
+    _Observable,
+    _RelationshipObject,
+)
 
 
 class Observation(NamedTuple):

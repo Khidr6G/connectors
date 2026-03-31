@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, cast
 from .base_api import BaseCrowdstrikeClient
 
 if TYPE_CHECKING:
-    from pycti import OpenCTIConnectorHelper
-
     from crowdstrike_feeds_connector import ConnectorSettings
+    from pycti import OpenCTIConnectorHelper
 
 
 class ReportsAPI(BaseCrowdstrikeClient):

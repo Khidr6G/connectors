@@ -256,13 +256,14 @@ class RelatedActorBundleBuilder:
 
         # Labels: raw CrowdStrike motivation values and actor_type
         labels: list[str] = []
-        for mot in motivations_raw:
-            if isinstance(mot, Mapping):
-                val = str(mot.get("value") or mot.get("slug") or "").strip()
-            else:
-                val = str(mot).strip()
-            if val:
-                labels.append(val)
+        if isinstance(motivations_raw, list):
+            for mot in motivations_raw:
+                if isinstance(mot, Mapping):
+                    val = str(mot.get("value") or mot.get("slug") or "").strip()
+                else:
+                    val = str(mot).strip()
+                if val:
+                    labels.append(val)
         actor_type = actor.get("actor_type")
         if actor_type:
             actor_type_str = str(actor_type).strip()

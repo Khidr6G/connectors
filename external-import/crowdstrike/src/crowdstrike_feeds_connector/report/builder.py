@@ -4,19 +4,6 @@ import logging
 from collections.abc import Sequence
 from typing import Any, Iterable, Mapping, cast
 
-from stix2 import (
-    Bundle,
-    ExternalReference,
-    Identity,
-    IntrusionSet,
-    Location,
-    Malware,
-    MarkingDefinition,
-    Relationship,
-)
-from stix2 import Report as STIXReport
-from stix2.v21 import _DomainObject, _RelationshipObject
-
 from crowdstrike_feeds_connector.related_actors.builder import RelatedActorBundleBuilder
 from crowdstrike_feeds_services.utils import (
     create_external_reference,
@@ -31,6 +18,18 @@ from crowdstrike_feeds_services.utils import (
     normalize_start_time_and_stop_time,
     timestamp_to_datetime,
 )
+from stix2 import (
+    Bundle,
+    ExternalReference,
+    Identity,
+    IntrusionSet,
+    Location,
+    Malware,
+    MarkingDefinition,
+    Relationship,
+)
+from stix2 import Report as STIXReport
+from stix2.v21 import _DomainObject, _RelationshipObject
 
 logger = logging.getLogger(__name__)
 

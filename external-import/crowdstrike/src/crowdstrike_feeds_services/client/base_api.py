@@ -3,9 +3,8 @@ from typing import TYPE_CHECKING
 from falconpy import Intel as CrowdstrikeIntel
 
 if TYPE_CHECKING:
-    from pycti import OpenCTIConnectorHelper
-
     from crowdstrike_feeds_connector import ConnectorSettings
+    from pycti import OpenCTIConnectorHelper
 
 
 class BaseCrowdstrikeClient:

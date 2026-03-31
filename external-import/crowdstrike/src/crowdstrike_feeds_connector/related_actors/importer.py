@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 from crowdstrike_feeds_services.client.actors import ActorsAPI
 
 if TYPE_CHECKING:
-    from pycti import OpenCTIConnectorHelper
-
     from crowdstrike_feeds_connector import ConnectorSettings
+    from pycti import OpenCTIConnectorHelper
 
 
 class RelatedActorImporter:
